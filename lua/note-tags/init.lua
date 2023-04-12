@@ -2,72 +2,83 @@ local telescope = require('telescope')
 local actions = require('telescope.actions')
 local pickers = require('telescope.pickers')
 local finders = require('telescope.finders')
-local built = require('telescope.builtin')
 local conf = require('telescope.config').values
 
 local M = {}
 
-local function get_notes_folder()
-  if M.notes_folder ~= nil then
-    return M.notes_folder
-  end
-  return vim.fn.getcwd()
-end
+M.list_notes = function()
+  local notes_folder = vim.fn.expand(vim.fn['g:notes_folder'] or vim.fn.getcwd())
+  local results = {}
 
-local function read_tags()
-  local notes_folder = get_notes_folder()
-  local tag_set = {}
-  for _, file in ipairs(vim.fn.glob(notes_folder .. "/*.md", true, true)) do
-    local file_tags = vim.fn.matchlist(vim.fn.readfile(file), "\\v#([^ ]+)", 0)
-    for _, tag in ipairs(file_tags) do
-      if tag ~= "" then
-        tag_set[tag] = true
-      end
-    end
-  end
-  return vim.tbl_keys(tag_set)
-end
+  -- find all markdown files in the notes_folder
+  for _, file in ipairs(vim.fn.glob(notes_folder .. '/*.md', false, true)) do
+    local lines = vim.fn.readfile(file)
+    local tags = {}
 
-local function find_notes_for_tag(tag)
-  local notes_folder = get_notes_folder()
-  local notes_list = {}
-  for _, file in ipairs(vim.fn.glob(notes_folder .. "/*.md", true, true)) do
-    local file_tags = vim.fn.matchlist(vim.fn.readfile(file), "\\v#([^ ]+)", 0)
-    for _, t in ipairs(file_tags) do
-      if t == tag then
-        table.insert(notes_list, file)
+    -- get all the tags in the file
+    for _, line in ipairs(lines) do
+      if vim.startswith(line, '#') then
+        for tag in vim.gsplit(line, '%s+') do
+          if vim.startswith(tag, '#') then
+            table.insert(tags, tag)
+          end
+        end
+      else
         break
       end
     end
-  end
-  return notes_list
-end
 
-function M.tags()
-  local tags = read_tags()
-  if #tags == 0 then
-    print('No tags found in files in folder')
-    print(get_notes_folder())
-  else
-    print(table.concat(tags, ", "))
+    -- add the file to the results for each tag it has
+    for _, tag in ipairs(tags) do
+      results[tag] = results[tag] or {}
+      table.insert(results[tag], file)
+    end
   end
-  built.quickfix({ entries = tags })
-end
 
-function M.notes()
-  built.find_files({
-    prompt_title = "Notes for tag",
-    cwd = get_notes_folder(),
-    attach_mappings = function(_, map)
-      map('i', '<cr>', function(prompt_bufnr)
-        local selection = actions.state.get_selected_entry()
-        vim.cmd("edit " .. selection.value)
-        actions.close(prompt_bufnr)
-      end)
+  local tag_picker = pickers.new({}, {
+    prompt_title = 'Notes Tags',
+    finder = finders.new_table({
+      results = vim.tbl_keys(results),
+    }),
+    sorter = conf.generic_sorter({}),
+    attach_mappings = function(prompt_bufnr, map)
+      local select_tag = function()
+        local selection = actions.get_selected_entry(prompt_bufnr)
+        local files = results[selection.value]
+        M.list_files(files)
+      end
+
+      map('i', '<CR>', select_tag)
+      map('n', '<CR>', select_tag)
+
       return true
     end,
-    find_command = { "rg", "--files", "--hidden", "--no-ignore", "--follow", "-g", "*.md" },
   })
+
+  tag_picker:find()
+end
+
+M.list_files = function(files)
+  local file_picker = pickers.new({}, {
+    prompt_title = 'Notes Files',
+    finder = finders.new_table({
+      results = files,
+    }),
+    sorter = conf.generic_sorter({}),
+    attach_mappings = function(prompt_bufnr, map)
+      local view_file = function()
+        local selection = actions.get_selected_entry(prompt_bufnr)
+        vim.cmd('e ' .. selection.value)
+      end
+
+      map('i', '<CR>', view_file)
+      map('n', '<CR>', view_file)
+
+      return true
+    end,
+  })
+
+  file_picker:find()
 end
 
 function M.setup()
@@ -75,7 +86,7 @@ function M.setup()
   --   command! -nargs=? Encrypt lua require('encrypt-text').encrypt(<f-args>)
   --   command! -nargs=? Decrypt lua require('encrypt-text').decrypt(<f-args>)
   -- ]])
-  vim.cmd([[command! Tags lua require('note-tags').tags()]])
+  -- vim.cmd([[command! Tags lua require('note-tags').tags()]])
   -- Add keymaps to Telescope Tags and Note Tags
   -- vim.api.nvim_set_keymap('n', '<leader>f', ':Telescope Tags<CR>', { noremap = true })
   -- vim.api.nvim_set_keymap('n', '<leader>t', ':lua require("note-tags").find_files_for_tag()<CR>', { noremap = true })
