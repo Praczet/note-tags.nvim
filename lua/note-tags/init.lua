@@ -8,8 +8,8 @@ local conf = require('telescope.config').values
 local M = {}
 
 local function get_notes_folder()
-  if lvim.plugins["Praczet/note-tags"].notes_folder ~= nil then
-    return lvim.plugins["Praczet/note-tags"].notes_folder
+  if lvim.plugins["Praczet/note-tags.nvim"].notes_folder ~= nil then
+    return lvim.plugins["Praczet/note-tags.nvim"].notes_folder
   end
   return vim.fn.getcwd()
 end
