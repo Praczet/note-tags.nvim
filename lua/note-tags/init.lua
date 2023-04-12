@@ -70,11 +70,12 @@ function M.notes()
   })
 end
 
-function M.setup()
+function M.setup(config)
   -- vim.cmd([[
   --   command! -nargs=? Encrypt lua require('encrypt-text').encrypt(<f-args>)
   --   command! -nargs=? Decrypt lua require('encrypt-text').decrypt(<f-args>)
   -- ]])
+  print(config);
   vim.cmd([[command! Tags lua require('note-tags').tags()]])
   -- Add keymaps to Telescope Tags and Note Tags
   vim.api.nvim_set_keymap('n', '<leader>f', ':Telescope Tags<CR>', { noremap = true })
