@@ -44,7 +44,7 @@ function M.find_files_for_tag(tag)
 
     local opts = {
       prompt_title = "Note for tag",
-      finder = require("telescope.finder").new_table {
+      finder = require("telescope.finders").new_table {
         results = tags,
         entry_maker = function(entry)
           return {
