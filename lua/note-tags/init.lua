@@ -1,8 +1,15 @@
+local telescope = require('telescope')
+local actions = require('telescope.actions')
+local pickers = require('telescope.pickers')
+local finders = require('telescope.finders')
+local built = require('telescope.builtin')
+local conf = require('telescope.config').values
+
 local M = {}
 
 local function get_notes_folder()
-  if lvim.plugins["note-tags"].notes_folder ~= nil then
-    return lvim.plugins["note-tags"].notes_folder
+  if M.notes_folder ~= nil then
+    return M.notes_folder
   end
   return vim.fn.getcwd()
 end
@@ -38,18 +45,18 @@ end
 
 function M.tags()
   local tags = read_tags()
-  require("telescope.builtin").quickfix({ entries = tags })
+  built.quickfix({ entries = tags })
 end
 
 function M.notes()
-  require("telescope.builtin").find_files({
+  built.find_files({
     prompt_title = "Notes for tag",
     cwd = get_notes_folder(),
     attach_mappings = function(_, map)
       map('i', '<cr>', function(prompt_bufnr)
-        local selection = require('telescope.actions.state').get_selected_entry()
+        local selection = actions.state.get_selected_entry()
         vim.cmd("edit " .. selection.value)
-        require('telescope.actions').close(prompt_bufnr)
+        actions.close(prompt_bufnr)
       end)
       return true
     end,
