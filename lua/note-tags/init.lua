@@ -29,8 +29,7 @@ local function read_tags()
 end
 
 function M.find_files_for_tag(tag)
-  local notes_folder = M.get_notes_folder()
-  local files = vim.fn.glob(notes_folder .. "/**/*.md", true, true)
+  local files = vim.fn.glob("~/Notes/**/*.md", true, true)
   local tags = {}
 
   for _, file in ipairs(files) do
