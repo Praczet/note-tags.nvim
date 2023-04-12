@@ -43,13 +43,13 @@ function M.find_files_for_tag(tag)
     print(vim.inspect(tags))
 
     local opts = {
-      prompt_title = "Note for tag:: >" .. tag .. "<",
+      prompt_title = "Note for tag:: >#" .. tag .. "<",
       finder = require("telescope.finders").new_table {
         results = tags,
         entry_maker = function(entry)
           return {
             value = entry.path,
-            filename = entry.path,
+            display = entry.filename,
             ordinal = entry.path,
           }
         end,
