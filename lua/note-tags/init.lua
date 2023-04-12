@@ -45,7 +45,12 @@ end
 
 function M.tags()
   local tags = read_tags()
-  print(table.concat(tags, ", "))
+  if #tags == 0 then
+    print('No tags found in files in folder')
+    print(get_notes_folder())
+  else
+    print(table.concat(tags, ", "))
+  end
   built.quickfix({ entries = tags })
 end
 
