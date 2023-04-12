@@ -28,6 +28,25 @@ local function read_tags()
   return vim.tbl_keys(tag_set)
 end
 
+function M.find_files_for_tag(tag)
+  local notes_folder = M.get_notes_folder()
+  local files = vim.fn.glob(notes_folder .. "/**/*.md", true, true)
+  local tags = {}
+
+  for _, file in ipairs(files) do
+    local contents = io.open(file):read("*all")
+    if contents:find("#" .. tag, 1, true) then
+      table.insert(tags, { filename = file })
+    end
+  end
+
+  if #tags > 0 then
+    require('telescope.builtin').quickfix({ entries = tags })
+  else
+    print("No files found for tag " .. tag)
+  end
+end
+
 local function find_notes_for_tag(tag)
   local notes_folder = get_notes_folder()
   local notes_list = {}
