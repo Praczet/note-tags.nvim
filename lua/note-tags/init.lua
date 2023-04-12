@@ -35,7 +35,7 @@ function M.find_files_for_tag(tag)
   for _, file in ipairs(files) do
     local contents = io.open(file):read("*all")
     if contents:find("#" .. tag, 1, true) then
-      table.insert(tags, { filename = file })
+      table.insert(tags, { filename = file, text = tag })
     end
   end
 
