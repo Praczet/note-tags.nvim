@@ -45,7 +45,7 @@ end
 
 function M.tags()
   local tags = read_tags()
-  print(tags)
+  print(table.concat(tags, ", "))
   built.quickfix({ entries = tags })
 end
 
