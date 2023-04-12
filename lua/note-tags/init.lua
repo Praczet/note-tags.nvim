@@ -8,8 +8,8 @@ local conf = require('telescope.config').values
 local M = {}
 
 local function get_notes_folder()
-  if M.notes_folder ~= nil then
-    return M.notes_folder
+  if require("note-tags").config.notes_folder ~= nil then
+    return require("note-tags").config.notes_folder
   end
   return vim.fn.getcwd()
 end
