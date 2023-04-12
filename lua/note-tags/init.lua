@@ -29,7 +29,8 @@ local function read_tags()
 end
 
 function M.find_files_for_tag(tag)
-  local files = vim.fn.glob("~/Notes/**/*.md", true, true)
+  local notes_folder = get_notes_folder()
+  local files = vim.fn.glob(notes_folder .. "/**/*.md", true, true)
   local tags = {}
 
   for _, file in ipairs(files) do
@@ -43,7 +44,7 @@ function M.find_files_for_tag(tag)
     print(vim.inspect(tags))
 
     local opts = {
-      prompt_title = "Note for tag:: >#" .. tag .. "<",
+      prompt_title = "Note for tag #" .. tag,
       finder = require("telescope.finders").new_table {
         results = tags,
         entry_maker = function(entry)
