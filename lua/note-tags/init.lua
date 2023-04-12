@@ -40,6 +40,7 @@ function M.find_files_for_tag(tag)
   end
 
   if #tags > 0 then
+    print(vim.inspect(tags))
     require('telescope.builtin').quickfix({ entries = tags })
   else
     print("No files found for tag " .. tag)
