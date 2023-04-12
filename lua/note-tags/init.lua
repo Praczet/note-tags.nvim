@@ -35,7 +35,7 @@ function M.find_files_for_tag(tag)
   for _, file in ipairs(files) do
     local contents = io.open(file):read("*all")
     if contents:find("#" .. tag, 1, true) then
-      table.insert(tags, { filename = file, text = tag, lnum = 1 })
+      table.insert(tags, { path = file, text = tag, lnum = 1 })
     end
   end
 
@@ -98,7 +98,7 @@ function M.setup()
   -- Add keymaps to Telescope Tags and Note Tags
   -- vim.api.nvim_set_keymap('n', '<leader>f', ':Telescope Tags<CR>', { noremap = true })
   vim.api.nvim_set_keymap('n', '<leader>t', ':lua require("note-tags").find_files_for_tag("Item")<CR>',
-  { noremap = true })
+    { noremap = true })
 end
 
 return setmetatable({}, {
