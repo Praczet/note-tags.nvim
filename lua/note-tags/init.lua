@@ -35,7 +35,7 @@ function M.find_files_for_tag(tag)
   for _, file in ipairs(files) do
     local contents = io.open(file):read("*all")
     if contents:find("#" .. tag, 1, true) then
-      table.insert(tags, { path = file, text = tag, lnum = 1 })
+      table.insert(tags, { path = file, filename = string.match(file, "[^/]+$"), lnum = 1 })
     end
   end
 
@@ -43,13 +43,13 @@ function M.find_files_for_tag(tag)
     print(vim.inspect(tags))
 
     local opts = {
-      prompt_title = "Note for tag",
+      prompt_title = "Note for tag:: >" .. tag .. "<",
       finder = require("telescope.finders").new_table {
         results = tags,
         entry_maker = function(entry)
           return {
             value = entry.path,
-            display = entry.path,
+            filename = entry.path,
             ordinal = entry.path,
           }
         end,
