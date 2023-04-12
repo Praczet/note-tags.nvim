@@ -41,11 +41,30 @@ function M.find_files_for_tag(tag)
 
   if #tags > 0 then
     print(vim.inspect(tags))
-    require("telescope.builtin").find_files({
-      prompt_title = "Notes for tag #" .. tag,
-      cwd = "~/Notes",
-      results = tags,
-    })
+
+    local opts = {
+      prompt_title = "Note for tag",
+      finder = require("telescope.finder").new_table {
+        results = tags,
+        entry_maker = function(entry)
+          return {
+            value = entry.path,
+            display = entry.path,
+            ordinal = entry.path,
+          }
+        end,
+      },
+      sorter = require("telescope.sorters").get_generic_fuzzy_sorter(),
+      attach_mappings = function(_, map)
+        map("i", "<CR>", function(prompt_bufnr)
+          local selection = require("telescope.actions.state").get_selected_entry(prompt_bufnr)
+          require("telescope.actions").close(prompt_bufnr)
+          vim.api.nvim_command("edit " .. selection.value)
+        end)
+        return true
+      end,
+    }
+    require("telescope.pickers").new(opts):find()
   else
     print("No files found for tag " .. tag)
   end
