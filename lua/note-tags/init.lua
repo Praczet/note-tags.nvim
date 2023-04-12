@@ -41,7 +41,11 @@ function M.find_files_for_tag(tag)
 
   if #tags > 0 then
     print(vim.inspect(tags))
-    require('telescope.builtin').quickfix({ entries = tags })
+    require("telescope.builtin").find_files({
+      prompt_title = "Notes for tag #" .. tag,
+      cwd = "~/Notes",
+      results = tags,
+    })
   else
     print("No files found for tag " .. tag)
   end
