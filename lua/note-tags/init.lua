@@ -104,11 +104,12 @@ local function read_tags()
   end
 end
 
+-- Method siplay tags in picker window. (tag that are read from notes)
+-- Enter will insert tag <Control>+o will open another picker with the list of notes
+-- for selected tag
 local function display_tags(opts)
   opts = opts or {}
   local tags = opts.tags or {}
-
-  print(vim.inspect(tags))
 
   local pickers_opts = {
     prompt_title = "Search for tag",
@@ -116,7 +117,7 @@ local function display_tags(opts)
     finder = finders.new_table(tags),
     sorter = sorters.get_generic_fuzzy_sorter({}),
     previewer = previewers.new_buffer_previewer({
-      title = "Notes",
+      title = "Notes (<C-o> Notes)",
       width = 0.8,
       define_preview = function(self, entry, status)
         local notes = M.get_notes_for_tag(entry.value) or { "-- notes not found --" }
@@ -126,6 +127,22 @@ local function display_tags(opts)
       end
     }),
     attach_mappings = function(prompt_bufnr, map)
+      local function open_notes()
+        actions.close(prompt_bufnr)
+        local selection = action_state.get_selected_entry()
+        M.notes({ tag = selection[1] })
+      end
+      local function local_add_new_tag()
+        local user_input = vim.api.nvim_buf_get_lines(prompt_bufnr, 0, -1, false)[1] or ''
+        if string.len(user_input) > 4 then
+          user_input = string.sub(user_input, 5)
+        else
+          user_input = ''
+        end
+        actions.close(prompt_bufnr)
+        -- print('user input', user_input)
+        M.add_new_tag(user_input)
+      end
       actions.select_default:replace(
         function()
           actions.close(prompt_bufnr)
@@ -133,6 +150,9 @@ local function display_tags(opts)
           M.add_tag(selection[1])
         end
       )
+      map('i', '<C-o>', open_notes)
+      map('n', '<C-o>', open_notes)
+      map('i', '<C-n>', local_add_new_tag)
       return true
     end
   }
@@ -142,7 +162,7 @@ local function display_tags(opts)
 end
 
 
-
+-- Get list of notes that for tag. It searches after tag separator
 local function get_notes_for_tag_separator(tag)
   local files = get_notes_with_separator()
   local separator = get_tags_separator()
@@ -184,7 +204,16 @@ local function get_notes_for_tag_whilefile(tag)
   return notes
 end
 
+local function get_all_notes()
+  local notes_folder = get_notes_folder()
+  local find_command = "find " .. notes_folder .. "  -type f -name '*.md*'"
+  local find_results = vim.fn.systemlist(find_command)
+  -- local notes = {}
+  return find_results
+end
+
 function M.add_tag(tag)
+  tag               = tag:gsub("^#", "")
   local tags_found  = false
   local bfnr        = vim.api.nvim_get_current_buf()
   local lines       = vim.api.nvim_buf_line_count(bfnr)
@@ -192,7 +221,7 @@ function M.add_tag(tag)
   local r_separator = string.gsub(separator, "-", "%%-")
   -- vim.api.nvim_put({ "#" .. selection[1] .. " " }, "", false, true)
   for i, line in ipairs(vim.fn.getbufline(bfnr, 1, "$")) do
-    if string.find(line, "^--" .. r_separator) then
+    if string.find(line, "^" .. r_separator) then
       tags_found = true
       for j = i + 1, #vim.fn.getbufline(bfnr, i, "$") + i do
         local current_line = vim.fn.getbufline(bfnr, j, j)[1]
@@ -202,7 +231,6 @@ function M.add_tag(tag)
             return
           else
             vim.api.nvim_buf_set_lines(bfnr, j - 1, j, false, { current_line .. " #" .. tag })
-            print('adding at the end', j, current_line)
             return
           end
         end
@@ -211,7 +239,6 @@ function M.add_tag(tag)
       return
     end
   end
-
   -- If the buffer does not contain a line with "<!--tags-->", add it to the end
   if not tags_found then
     vim.api.nvim_buf_set_lines(bfnr, lines, lines, false, { "---" })
@@ -220,6 +247,17 @@ function M.add_tag(tag)
     vim.api.nvim_buf_set_lines(bfnr, lines + 3, lines + 3, false, { '' })
     vim.api.nvim_buf_set_lines(bfnr, lines + 4, lines + 4, false, { "#" .. tag })
   end
+end
+
+function M.add_new_tag(...)
+  local new_tag = ''
+  if select("#", ...) > 0 then
+    new_tag = select(1, ...)
+  end
+  if new_tag == '' then
+    new_tag = vim.fn.input({ prompt = "New Tag: #" })
+  end
+  M.add_tag(new_tag)
 end
 
 function M.table_map(tbl, fn)
@@ -249,23 +287,79 @@ function M.tags()
   display_tags({ tags = tags })
 end
 
-function M.notes()
-  built.find_files({
-    prompt_title = "Notes for tag",
-    cwd = get_notes_folder(),
-    attach_mappings = function(_, map)
-      map('i', '<cr>', function(prompt_bufnr)
-        local selection = actions.state.get_selected_entry()
-        vim.cmd("edit " .. selection.value)
+function M.notes(...)
+  local opts = {}
+  if select("#", ...) > 0 then
+    opts = select(1, ...)
+  end
+  local tag = opts.tag or ""
+  local notes = {}
+  local title = ''
+  if tag == '' then
+    notes = get_all_notes() or {}
+    title = "All notes (<C-t> Tags)"
+  else
+    notes = M.get_notes_for_tag(tag) or {}
+    title = "Notes tagged -=#" .. tag .. "=- (<C-t> Tags)"
+  end
+  local abs_path = vim.fn.expand(get_notes_folder()) .. "/"
+  local pickers_opts = {
+    prompt_title = "Search for notes",
+    results_title = title,
+    dynamic_preview_title = true,
+    finder = finders.new_table({
+      results = notes,
+      entry_maker = function(note)
+        return {
+          value = note,
+          display = string.gsub(note, abs_path, ""),
+          ordinal = string.gsub(note, abs_path, ""),
+        }
+      end
+    }),
+    sorter = sorters.get_fuzzy_file({}),
+    -- sorter = sorters.get_generic_fuzzy_sorter({}),
+    previewer = previewers.new_termopen_previewer({
+      title = 'Preview',
+      -- dynamic_preview_title = function(_, entry)
+      --   return entry.value
+      -- end,
+      get_command = function(entry)
+        local f = io.popen('which glow')
+        -- fallback if there is no 'which' command
+        if f == nil then
+          return { 'cat', entry.value }
+        end
+        local output = f:read('*a')
+        f:close()
+        if output ~= '' then
+          return { 'glow', entry.value }
+        else
+          return { 'cat', entry.value }
+        end
+      end
+    }),
+    attach_mappings = function(prompt_bufnr, map)
+      local function back_to_tags()
         actions.close(prompt_bufnr)
-      end)
+        M.tags()
+      end
+      map('i', '<C-t>', back_to_tags)
+      map('n', '<C-t>', back_to_tags)
       return true
-    end,
-    find_command = { "rg", "--files", "--hidden", "--no-ignore", "--follow", "-g", "*.md" },
-  })
+    end
+  }
+  -- #story #me
+  local note_picker = pickers.new(pickers_opts)
+  note_picker:find()
+
+  -- new_note =
+  -- for i, v in ipairs(notes) do
+  --   new_tbl[i] = fn(v, i, notes)
+  -- end
 end
 
-function M.setup()
+function M.setup(opts)
   -- vim.cmd([[
   --   command! -nargs=? Encrypt lua require('encrypt-text').encrypt(<f-args>)
   --   command! -nargs=? Decrypt lua require('encrypt-text').decrypt(<f-args>)
@@ -286,7 +380,7 @@ return setmetatable({}, {
     end
   end,
 })
--- M.tags()
+-- M.notes()
 --<!--tags-->
 
---#dream #lion
+--#dream #lion #story #me #develop #dom #oko
