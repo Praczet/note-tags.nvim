@@ -48,6 +48,7 @@ You can configure:
 
 ## ToDo
 
+- [x] Change behavior of enter in Picker instead of closing should stay open
 - [x] Add Mapping for control + O to open notes filtered by tag
 - [x] Add reading data from config, which I have no Idea how
 - [x] Add Mapping for leader n

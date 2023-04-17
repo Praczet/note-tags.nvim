@@ -89,7 +89,7 @@ end
 
 -- Reads tags in whole file using regularexpression
 local function read_tags_whole_file()
-  print('Whole file')
+  -- print('Whole file')
   local notes_folder = get_notes_folder()
   local search = "#[^ #=]+"
   local grep_command = "grep -r -E '" .. search .. "' " .. notes_folder .. "/*.md | sort | uniq"
@@ -127,6 +127,7 @@ end
 local function display_tags(opts)
   opts = opts or {}
   local tags = opts.tags or {}
+  local current_bufnr = vim.api.nvim_get_current_buf()
 
   local pickers_opts = {
     prompt_title = "Search for tag",
@@ -156,15 +157,15 @@ local function display_tags(opts)
         else
           user_input = ''
         end
-        actions.close(prompt_bufnr)
+        -- actions.close(prompt_bufnr)
         -- print('user input', user_input)
-        M.add_new_tag(user_input)
+        M.add_new_tag(user_input, current_bufnr)
       end
       actions.select_default:replace(
         function()
-          actions.close(prompt_bufnr)
+          -- actions.close(prompt_bufnr)
           local selection = action_state.get_selected_entry()
-          if selection ~= nil then M.add_tag(selection[1]) end
+          if selection ~= nil then M.add_tag(selection[1], current_bufnr) end
         end
       )
       map('i', '<C-n>', open_notes)
@@ -231,10 +232,10 @@ local function add_tag_wholeFile(tag)
   vim.api.nvim_put({ "#" .. tag .. " " }, "", false, true)
 end
 
-local function add_tag_separator(tag)
+local function add_tag_separator(tag, current_bufnr)
   tag               = tag:gsub("^#", "")
   local tags_found  = false
-  local bfnr        = vim.api.nvim_get_current_buf()
+  local bfnr        = current_bufnr or vim.api.nvim_get_current_buf()
   local lines       = vim.api.nvim_buf_line_count(bfnr)
   local separator   = get_tags_separator()
   local r_separator = string.gsub(separator, "-", "%%-")
@@ -246,15 +247,20 @@ local function add_tag_separator(tag)
         local current_line = vim.fn.getbufline(bfnr, j, j)[1]
         if string.find(current_line, "#") then
           if string.find(current_line, "#" .. tag .. "%s") or string.find(current_line, "#" .. tag .. "$") then
+            vim.cmd("redraw")
             print('Tags exists')
             return
           else
             vim.api.nvim_buf_set_lines(bfnr, j - 1, j, false, { current_line .. " #" .. tag })
+            vim.cmd("redraw")
+            print('Tag: #' .. tag .. ' added.')
             return
           end
         end
       end
       vim.api.nvim_buf_set_lines(bfnr, lines, lines, false, { "#" .. tag })
+      vim.cmd("redraw")
+      print('Tag: #' .. tag .. ' added.')
       return
     end
   end
@@ -266,24 +272,30 @@ local function add_tag_separator(tag)
     vim.api.nvim_buf_set_lines(bfnr, lines + 3, lines + 3, false, { separator })
     vim.api.nvim_buf_set_lines(bfnr, lines + 4, lines + 4, false, { '' })
     vim.api.nvim_buf_set_lines(bfnr, lines + 5, lines + 5, false, { "#" .. tag })
+    vim.cmd("redraw")
+    print('Tag: #' .. tag .. ' added.')
   end
 end
 
-function M.add_tag(tag)
+function M.add_tag(tag, current_bufnr)
   tag = tag:gsub("^#", "")
   if tag == nil or tag == '' then return end
   if get_read_tag_method() == "separator" then
-    add_tag_separator(tag)
+    add_tag_separator(tag, current_bufnr)
   else
-    add_tag_wholeFile(tag)
+    add_tag_wholeFile(tag, current_bufnr)
   end
 end
 
 -- Adds new tag, if called without parameter Prompt for new tag will be displayed
 function M.add_new_tag(...)
   local new_tag = ''
+  local current_bufnr = vim.api.nvim_get_current_buf()
   if select("#", ...) > 0 then
     new_tag = select(1, ...)
+  end
+  if select("#", ...) > 1 then
+    current_bufnr = select(2, ...)
   end
   if new_tag == '' then
     new_tag = vim.fn.input({ prompt = "New Tag: #" })
@@ -293,7 +305,7 @@ function M.add_new_tag(...)
       return
     end
   end
-  M.add_tag(new_tag)
+  M.add_tag(new_tag, current_bufnr)
 end
 
 function M.table_map(tbl, fn)
@@ -315,10 +327,11 @@ end
 function M.tags()
   local tags = read_tags()
   if #tags == 0 then
-    print('No tags found in files in folder')
+    vim.cmd("redraw")
+    print('No tags found in files in folder: ')
     print(get_notes_folder())
   else
-    print(table.concat(tags, ", "))
+    -- print(table.concat(tags, ", "))
   end
   display_tags({ tags = tags })
 end
