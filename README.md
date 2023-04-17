@@ -33,7 +33,20 @@ You can configure:
   - **_wholeFile_** - it will looks for tags in file
 - **tags_separator** - separator default: <!--tags--> it is needed when read_tag_method = seperator
 
-# ToDo
+```lua
+{
+  "Praczet/note-tags.nvim",
+  config = function()
+    require("note-tags").setup({
+      notes_folder    = "~/Notes",     -- optional (default: current folder)
+      read_tag_method = "separator",   -- optional (default: separator)
+      separator       = "<!--tags-->", -- optional (default: <!--tags-->)
+    })
+  end
+}
+```
+
+## ToDo
 
 - [x] Add Mapping for control + O to open notes filtered by tag
 - [x] Add reading data from config, which I have no Idea how
