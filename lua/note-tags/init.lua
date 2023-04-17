@@ -5,24 +5,31 @@ local pickers = require('telescope.pickers')
 local sorters = require('telescope.sorters')
 local finders = require('telescope.finders')
 local previewers = require('telescope.previewers')
-local built = require('telescope.builtin')
-local utils = require('telescope.utils')
-local conf = require('telescope.config').values
 
 local M = {}
+M._Config = {
+  -- Folder with Notes it can be empty string
+  notes_folder = '',
+  -- Tag separator. it is used only when read_tag_method = "separator"
+  tags_separator = '<!--tags-->',
+  -- It can be set as: 'separator' | 'wholeFile'
+  -- - **separator** - will reads tags only after the separator
+  -- - **wholeFile** - will reads tags in whole file
+  read_tag_method = 'separator'
+}
 
+-- Gets Notes' folder based on M.\_Config.notes\_folder. If it is empty it will return current folder
 local function get_notes_folder()
-  if M.notes_folder ~= nil then
-    return M.notes_folder
+  if M._Config.notes_folder ~= nil and M._Config.notes_folder ~= '' then
+    return M._Config.notes_folder
   end
-  return "~/Notes"
-  -- return vim.fn.getcwd()
+  return vim.fn.getcwd()
 end
 
 -- This method will check in configuration if user has own tags seperator
 -- if not it will return mine <!--tags-->
 local function get_tags_separator()
-  return "<!--tags-->"
+  return M._Config.tags_separator
 end
 
 -- This method will check configuration and return method of reading tags
@@ -30,11 +37,15 @@ end
 -- * **separator** is a method that reads tags after separator (should be at the end of file)
 -- * **wholeFile** reads file and return tags matching regular expression
 local function get_read_tag_method()
-  return "separator"
-  -- return "wholeFile"
+  return M._Config.read_tag_method
 end
 
--- this methos will return
+local function file_exists(path)
+  local stat = vim.loop.fs_stat(path)
+  return stat ~= nil and stat.type == 'file'
+end
+
+-- this methos will return list of notes having **tag separator**
 local function get_notes_with_separator()
   local search = get_tags_separator()
   local notes_folder = get_notes_folder()
@@ -42,7 +53,7 @@ local function get_notes_with_separator()
   local grep_result = vim.fn.systemlist(grep_command)
   local filenames = {}
   for _, result in ipairs(grep_result) do
-    if not vim.tbl_contains(filenames, result) then
+    if not vim.tbl_contains(filenames, result) and file_exists(result) then
       table.insert(filenames, result)
     end
   end
@@ -50,6 +61,7 @@ local function get_notes_with_separator()
 end
 
 -- Reads tags only after the separator
+-- @return table tags with tags (tags are without #)
 local function read_tags_after_separator()
   local files = get_notes_with_separator()
   local separator = get_tags_separator()
@@ -85,7 +97,12 @@ local function read_tags_whole_file()
   local tags = {}
   -- print(vim.inspect(grep_result))
   for _, line in ipairs(grep_result) do
-    for tag in string.gmatch(line, '#([%w-]+)') do
+    for tag in string.gmatch(line, '#([%w-]+) ') do
+      if not vim.tbl_contains(tags, tag) then
+        table.insert(tags, tag)
+      end
+    end
+    for tag in string.gmatch(line, '#([%w-]+)$') do
       if not vim.tbl_contains(tags, tag) then
         table.insert(tags, tag)
       end
@@ -117,7 +134,7 @@ local function display_tags(opts)
     finder = finders.new_table(tags),
     sorter = sorters.get_generic_fuzzy_sorter({}),
     previewer = previewers.new_buffer_previewer({
-      title = "Notes (<C-o> Notes)",
+      title = "Notes (<C-n> Notes)",
       width = 0.8,
       define_preview = function(self, entry, status)
         local notes = M.get_notes_for_tag(entry.value) or { "-- notes not found --" }
@@ -147,16 +164,16 @@ local function display_tags(opts)
         function()
           actions.close(prompt_bufnr)
           local selection = action_state.get_selected_entry()
-          M.add_tag(selection[1])
+          if selection ~= nil then M.add_tag(selection[1]) end
         end
       )
-      map('i', '<C-o>', open_notes)
-      map('n', '<C-o>', open_notes)
-      map('i', '<C-n>', local_add_new_tag)
+      map('i', '<C-n>', open_notes)
+      map('n', '<C-n>', open_notes)
+      map('i', '<C-a>', local_add_new_tag)
+      map('n', '<C-a>', local_add_new_tag)
       return true
     end
   }
-  -- #story #me
   local tag_picker = pickers.new(pickers_opts)
   tag_picker:find()
 end
@@ -187,18 +204,15 @@ local function get_notes_for_tag_separator(tag)
   return notes
 end
 
-
 local function get_notes_for_tag_whilefile(tag)
   local notes_folder = get_notes_folder()
-  local grep_command = "grep -r  -l -E '#" .. tag .. "\\s|#" .. tag .. ",' " .. notes_folder .. "/*.md | sort | uniq "
+  local grep_command = "grep -r  -l -E '#" .. tag .. "\\s|#" .. tag .. "$' " .. notes_folder .. "/*.md | sort | uniq "
   local grep_result = vim.fn.systemlist(grep_command)
   local notes = {}
   -- print(vim.inspect(grep_result))
-  for _, line in ipairs(grep_result) do
-    for note in string.gmatch(line, '#([%w-]+)') do
-      if not vim.tbl_contains(notes, note) then
-        table.insert(notes, note)
-      end
+  for _, note in ipairs(grep_result) do
+    if not vim.tbl_contains(notes, note) and file_exists(note) then
+      table.insert(notes, note)
     end
   end
   return notes
@@ -212,7 +226,12 @@ local function get_all_notes()
   return find_results
 end
 
-function M.add_tag(tag)
+local function add_tag_wholeFile(tag)
+  tag = tag:gsub("^#", "")
+  vim.api.nvim_put({ "#" .. tag .. " " }, "", false, true)
+end
+
+local function add_tag_separator(tag)
   tag               = tag:gsub("^#", "")
   local tags_found  = false
   local bfnr        = vim.api.nvim_get_current_buf()
@@ -241,14 +260,26 @@ function M.add_tag(tag)
   end
   -- If the buffer does not contain a line with "<!--tags-->", add it to the end
   if not tags_found then
-    vim.api.nvim_buf_set_lines(bfnr, lines, lines, false, { "---" })
-    vim.api.nvim_buf_set_lines(bfnr, lines + 1, lines + 1, false, { '' })
-    vim.api.nvim_buf_set_lines(bfnr, lines + 2, lines + 2, false, { separator })
-    vim.api.nvim_buf_set_lines(bfnr, lines + 3, lines + 3, false, { '' })
-    vim.api.nvim_buf_set_lines(bfnr, lines + 4, lines + 4, false, { "#" .. tag })
+    vim.api.nvim_buf_set_lines(bfnr, lines, lines, false, { '' })
+    vim.api.nvim_buf_set_lines(bfnr, lines + 1, lines + 1, false, { "---" })
+    vim.api.nvim_buf_set_lines(bfnr, lines + 2, lines + 2, false, { '' })
+    vim.api.nvim_buf_set_lines(bfnr, lines + 3, lines + 3, false, { separator })
+    vim.api.nvim_buf_set_lines(bfnr, lines + 4, lines + 4, false, { '' })
+    vim.api.nvim_buf_set_lines(bfnr, lines + 5, lines + 5, false, { "#" .. tag })
   end
 end
 
+function M.add_tag(tag)
+  tag = tag:gsub("^#", "")
+  if tag == nil or tag == '' then return end
+  if get_read_tag_method() == "separator" then
+    add_tag_separator(tag)
+  else
+    add_tag_wholeFile(tag)
+  end
+end
+
+-- Adds new tag, if called without parameter Prompt for new tag will be displayed
 function M.add_new_tag(...)
   local new_tag = ''
   if select("#", ...) > 0 then
@@ -256,6 +287,11 @@ function M.add_new_tag(...)
   end
   if new_tag == '' then
     new_tag = vim.fn.input({ prompt = "New Tag: #" })
+    if new_tag == '' then
+      vim.cmd("redraw")
+      print('Tag can not be empty')
+      return
+    end
   end
   M.add_tag(new_tag)
 end
@@ -321,9 +357,6 @@ function M.notes(...)
     -- sorter = sorters.get_generic_fuzzy_sorter({}),
     previewer = previewers.new_termopen_previewer({
       title = 'Preview',
-      -- dynamic_preview_title = function(_, entry)
-      --   return entry.value
-      -- end,
       get_command = function(entry)
         local f = io.popen('which glow')
         -- fallback if there is no 'which' command
@@ -349,26 +382,29 @@ function M.notes(...)
       return true
     end
   }
-  -- #story #me
   local note_picker = pickers.new(pickers_opts)
   note_picker:find()
-
-  -- new_note =
-  -- for i, v in ipairs(notes) do
-  --   new_tbl[i] = fn(v, i, notes)
-  -- end
 end
 
+-- You can configure:
+-- * **notes_folder** - Folder with notes, if you sets it as '' it will take current working folder
+-- * **read_tag_method** - Method how plugin reads tags:
+--   * ***separator*** - it will reads tags after line with separator
+--   * ***wholeFile*** - it will looks for tags in file
+-- * **tags_separator** - separator default: <!--tags--> it is needed when read_tag_method = seperator
 function M.setup(opts)
-  -- vim.cmd([[
-  --   command! -nargs=? Encrypt lua require('encrypt-text').encrypt(<f-args>)
-  --   command! -nargs=? Decrypt lua require('encrypt-text').decrypt(<f-args>)
-  -- ]])
+  if opts ~= nil then
+    M._Config.notes_folder = opts.notes_folder or M._Config.notes_folder
+    M._Config.read_tag_method = opts.read_tag_method or M._Config.read_tag_method
+    M._Config.tags_separator = opts.tags_separator or M._Config.tags_separator
+  end
   vim.cmd([[command! Tags lua require('note-tags').tags()]])
+  vim.cmd([[command! Notes lua require('note-tags').notes()]])
   -- Add keymaps to Telescope Tags and Note Tags
-  -- vim.api.nvim_set_keymap('n', '<leader>f', ':Telescope Tags<CR>', { noremap = true })
-  vim.api.nvim_set_keymap('n', '<leader>t', ':lua require("note-tags").find_files_for_tag("Item")<CR>',
-    { noremap = true })
+  vim.keymap.set('n', '<leader>n', 'echo', { desc = "Notes / Tags", })
+  vim.api.nvim_set_keymap('n', '<leader>nt', ':lua require("note-tags").tags()<CR>', { desc = "Tags' list" })
+  vim.api.nvim_set_keymap('n', '<leader>na', ':lua require("note-tags").add_new_tag()<CR>', { desc = "Add New Tag" })
+  vim.api.nvim_set_keymap('n', '<leader>nn', ':lua require("note-tags").notes()<CR>', { desc = "Notes' list" })
 end
 
 return setmetatable({}, {
