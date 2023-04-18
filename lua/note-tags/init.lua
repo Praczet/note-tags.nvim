@@ -40,6 +40,9 @@ local function get_read_tag_method()
   return M._Config.read_tag_method
 end
 
+-- Checks if file file_exists
+--
+-- @param path True - file exists, False - otherwise
 local function file_exists(path)
   local stat = vim.loop.fs_stat(path)
   return stat ~= nil and stat.type == 'file'
@@ -205,7 +208,10 @@ local function get_notes_for_tag_separator(tag)
   return notes
 end
 
-local function get_notes_for_tag_whilefile(tag)
+-- Gets list of notes for tag
+-- This method search for tag in the file (no matter where)
+-- @param tag tag to search for
+local function get_notes_for_tag_wholefile(tag)
   local notes_folder = get_notes_folder()
   local grep_command = "grep -r  -l -E '#" .. tag .. "\\s|#" .. tag .. "$' " .. notes_folder .. "/*.md | sort | uniq "
   local grep_result = vim.fn.systemlist(grep_command)
@@ -219,19 +225,32 @@ local function get_notes_for_tag_whilefile(tag)
   return notes
 end
 
+-- Gets notes from notes_folder
+-- It uses `find` for it
 local function get_all_notes()
   local notes_folder = get_notes_folder()
   local find_command = "find " .. notes_folder .. "  -type f -name '*.md*'"
   local find_results = vim.fn.systemlist(find_command)
-  -- local notes = {}
   return find_results
 end
 
+-- Add tags to buffer
+-- Adds tags to current buffer in the cursor position
+-- Not like in separator method where tag is added at the bottom of file..
+-- @param tag tag to add
 local function add_tag_wholeFile(tag)
   tag = tag:gsub("^#", "")
   vim.api.nvim_put({ "#" .. tag .. " " }, "", false, true)
 end
 
+-- Adds tag to tags
+-- If separator can not be found in the buffer this method will:
+-- - Add horizontal line
+-- - Add separator
+-- - Tag
+-- If separator exists this method will add tag to tags (if tag exists message will be shown)
+-- @param tag tag to add
+-- @param current_bufnr buffer where note will be added
 local function add_tag_separator(tag, current_bufnr)
   tag               = tag:gsub("^#", "")
   local tags_found  = false
@@ -239,6 +258,7 @@ local function add_tag_separator(tag, current_bufnr)
   local lines       = vim.api.nvim_buf_line_count(bfnr)
   local separator   = get_tags_separator()
   local r_separator = string.gsub(separator, "-", "%%-")
+
   -- vim.api.nvim_put({ "#" .. selection[1] .. " " }, "", false, true)
   for i, line in ipairs(vim.fn.getbufline(bfnr, 1, "$")) do
     if string.find(line, "^" .. r_separator) then
@@ -264,6 +284,7 @@ local function add_tag_separator(tag, current_bufnr)
       return
     end
   end
+
   -- If the buffer does not contain a line with "<!--tags-->", add it to the end
   if not tags_found then
     vim.api.nvim_buf_set_lines(bfnr, lines, lines, false, { '' })
@@ -277,6 +298,10 @@ local function add_tag_separator(tag, current_bufnr)
   end
 end
 
+-- Base of read_tag_method it called proper function for adding tag
+-- It triggers eitghr add_tag_wholeFile or add_tag_separator
+-- @param tag Tag to add
+-- @param current_bufnr Buffer where tag should be added
 function M.add_tag(tag, current_bufnr)
   tag = tag:gsub("^#", "")
   if tag == nil or tag == '' then return end
@@ -308,6 +333,11 @@ function M.add_new_tag(...)
   M.add_tag(new_tag, current_bufnr)
 end
 
+-- Return given array but processed by given function
+-- It is poor substitute for JavaScript method Array.map()
+-- used for removing notes_folder from note's path
+-- @param tbl Table to process
+-- @param fn Function for processing
 function M.table_map(tbl, fn)
   local new_tbl = {}
   for i, v in ipairs(tbl) do
@@ -316,14 +346,17 @@ function M.table_map(tbl, fn)
   return new_tbl
 end
 
+-- Based on read_tag_method gets notes for tag
+-- @param tag Tags to search for
 function M.get_notes_for_tag(tag)
   if get_read_tag_method() == "separator" then
     return get_notes_for_tag_separator(tag)
   else
-    return get_notes_for_tag_whilefile(tag)
+    return get_notes_for_tag_wholefile(tag)
   end
 end
 
+-- Displays FInder, Prompt and previewer with Tags, if tags are not found the message will be shown
 function M.tags()
   local tags = read_tags()
   if #tags == 0 then
@@ -336,6 +369,8 @@ function M.tags()
   display_tags({ tags = tags })
 end
 
+-- Display list of Notes. It can have parameter opts.tag if passed it displays Notes for that Tag
+-- It also display selected note preview. It tries to use glow if not present it will just `cat` a note
 function M.notes(...)
   local opts = {}
   if select("#", ...) > 0 then
@@ -420,6 +455,7 @@ function M.setup(opts)
   vim.api.nvim_set_keymap('n', '<leader>nn', ':lua require("note-tags").notes()<CR>', { desc = "Notes' list" })
 end
 
+-- Export's public function (instead of it, can be added list od method to export)
 return setmetatable({}, {
   __index = function(_, k)
     if M[k] then
@@ -430,6 +466,3 @@ return setmetatable({}, {
   end,
 })
 -- M.notes()
---<!--tags-->
-
---#dream #lion #story #me #develop #dom #oko
