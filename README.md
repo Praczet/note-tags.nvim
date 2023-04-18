@@ -45,6 +45,50 @@ You can configure:
   end
 }
 ```
+## Usage
+
+### Displaying all notes
+
+To display all notes from the folder and be able to preview then with glow:
+
+`:Notes` or `<leader>nn`
+
+
+![All notes](https://user-images.githubusercontent.com/109667910/232796559-66b50235-b447-432f-a990-e1c023f62806.png)
+
+If glow is not isnatlled a note will be just displayed wuth `cat`
+
+### Displaying Tags
+
+To display all Tags' list:
+
+`:Tags` or `<leader>nt`
+
+![List of Tags](https://user-images.githubusercontent.com/109667910/232798296-8fa680a1-dc09-4054-b0c0-1538f2b021ec.png)
+
+In the previewer will be displayed a list of notes for selected tag.
+
+From this place you can:
+
+1. Enter a tag to buffer `<CR>` - will add selected tag
+2. Enter a new tag to buffer `<C-a>` - adds a new tag based on input in finder
+3. Display list of notes for selected tag `<C-n>`
+
+### Displaying Notes for selected tag
+
+![Notes for tag git](https://user-images.githubusercontent.com/109667910/232799315-04cac912-8fb0-48d2-9125-21cb489fdf6c.png)
+
+from this place you can
+1. Open Selected Note `<CR>`
+2. Go back to tags' list `<C-t>`
+
+### Added tags in the Note
+
+By default (if moethod is set for "separator") and separator = `<!--tags-->` you can see tags at the bottom of note.
+
+![Note's tag preview](https://user-images.githubusercontent.com/109667910/232800071-08d674ca-da6b-4c31-9b54-28243abaad7d.png)
+
+From the buffor in normal mode you can add a new note by `<leader>na` 
 
 ## ToDo
 
@@ -64,3 +108,7 @@ You can configure:
   - [ ] Usage
 
 [^1]: Folder should be or declared in config or plugin will take current one.
+
+
+
+
