@@ -1,7 +1,8 @@
 # note-tags
 
-This plugin is still in the WIP mode which means not all function works.. For example: register extension to Telescope, or this annoying message about success.
-However it is in the state of - **_you can use, but do not complain_**.
+This plugin is **deprecated** which means I won't change anything.. There is a simillar plugin that I wrote, doing the same, by instead keeping tags in #tag format it keeps them in YAML section, tags: 
+
+See: [yaml-tags.nvim](https://github.com/Praczet/yaml-tags.nvim)
 
 And this is my only the second plugin for neovim (or rather for LunarVim) and also my second script in lua so... Do not hit, just explain!
 
